@@ -1,0 +1,6 @@
+[
+            {	
+                "MeasureType":"sum", 
+                "MeasureColumn":"salary"
+            }
+        ]

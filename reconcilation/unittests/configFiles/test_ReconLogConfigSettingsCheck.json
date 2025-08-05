@@ -1,0 +1,18 @@
+[
+            {	
+                "MeasureType":"sum", 
+                "MeasureColumn":"salary"
+            },
+            {	
+                "MeasureType":"max", 
+                "MeasureColumn":"salary"
+            },
+            {	
+                "MeasureType":"sum", 
+                "MeasureColumn":"id"
+            },
+            {	
+                "MeasureType":"avg", 
+                "MeasureColumn":"salary"
+            }
+]

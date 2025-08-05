@@ -1,0 +1,91 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+  branches:
+    include:
+      - 'main'
+
+pr:
+  branches:
+    include:
+      - '*'
+
+pool:
+  name: CHTechBI-ADO-Linux-Pool
+  demands: [agent.name]
+
+steps:
+  - task: UsePythonVersion@0
+    displayName: 'Set Python Version to 3.9'
+    inputs:
+      versionSpec: '3.9'
+      architecture: 'x64'
+
+  - task: Bash@3
+    inputs:
+      targetType: inline
+      script: |
+        python3.9 -m venv venvironment
+        source venvironment/bin/activate
+        python3.9 -m pip install --upgrade pip
+        python3.9 -m pip install --upgrade setuptools
+    displayName: 'Setup Python virtual environment'
+
+  - task: CopyFiles@2
+    displayName: 'Copy Reconcilation'
+    inputs:
+      SourceFolder: '$(Build.Repository.LocalPath)/DPE_ADB/reconcilation/' 
+      Contents: '**'
+      TargetFolder: '$(Build.Repository.LocalPath)/TEMP/reconcilation/' 
+
+  - task: CopyFiles@2
+    displayName: 'Copy Common module'
+    inputs:
+      SourceFolder: '$(Build.Repository.LocalPath)/DPE_ADB/common/' 
+      Contents: '**'
+      TargetFolder: '$(Build.Repository.LocalPath)/TEMP/reconcilation/'
+
+  - task: Bash@3
+    displayName: 'Install requirements'
+    inputs:
+      targetType: inline
+      script: |
+        source venvironment/bin/activate
+        pip install -r $(Build.Repository.LocalPath)/TEMP/reconcilation/unittests/unittest-coverage--requirements.txt   
+  
+  - script: |
+      source venvironment/bin/activate
+      if [ ! -f ~/.databricks-connect ]; then
+        echo "y
+          $(adb_host)
+          $(dpe-app-sp-adb-pat)
+          $(adb_cluster_id)
+          $(adb_org_id)
+          15001" | databricks-connect configure
+      else
+        cd '$(Build.Repository.LocalPath)/DPE_CICD/scripts/'
+        python3.9 update_databricks_configuration_profile.py $(adb_host) '$(dpe-app-sp-adb-pat)' $(adb_cluster_id) $(adb_org_id) 15001
+      fi
+    displayName: 'Configure/Update Azure Databricks connect profile'
+
+  - script: |
+      source venvironment/bin/activate
+      cd $(Build.Repository.LocalPath)/TEMP/reconcilation/
+      python3.9 -m pytest --junitxml=$(Build.Repository.LocalPath)/testresult/test-unit.xml --cov-report xml:$(Build.Repository.LocalPath)/TEMP/cov_xml/coverage.xml --cov=$(Build.Repository.LocalPath)/TEMP/reconcilation/reconcilation/ ./unittests/unit_test_reconciliation.py
+    displayName: 'Run Unit Tests with Coverage'
+
+  - task: PublishTestResults@2
+    displayName: 'Publish Test results'
+    inputs:
+      testResultsFiles: '$(Build.Repository.LocalPath)/TEMP/reconcilation/testresult/*.xml'
+      publishRunAttachments: true
+      
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: '$(Build.Repository.LocalPath)/TEMP/cov_xml/coverage.xml'
+      failIfCoverageEmpty: false 
+    displayName: 'Publish coverage report'

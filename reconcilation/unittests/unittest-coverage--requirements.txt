@@ -1,0 +1,7 @@
+databricks-connect==12.2.*
+pytest
+pandas
+pyarrow
+pytest-cov
+adal
+PyYAML
